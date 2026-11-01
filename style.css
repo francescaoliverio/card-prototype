@@ -26,7 +26,6 @@
   --card-padding-inline: 20px;
   --border-width: 2px;
   --border-radius-sm: 20px;
-  --border-radius-md: 30px; /* reserved for future use */
 
   /* Shape geometry (all shapes below are derived from these) */
   --cut: var(--border-radius-sm); /* chamfer: card, name */
@@ -44,11 +43,8 @@
 
   /* Outer shapes (panel layer, clipped art) */
   --shape-card: polygon(0 var(--cut), var(--cut) 0, calc(100% - var(--cut)) 0, 100% var(--cut), 100% calc(100% - var(--cut)), calc(100% - var(--cut)) 100%, var(--cut) 100%, 0 calc(100% - var(--cut)));
-
   --shape-name: polygon(0 0, 100% 0, 100% calc(100% - var(--cut)), calc(100% - var(--cut)) 100%, var(--cut) 100%, 0 calc(100% - var(--cut)));
-
   --shape-panel: polygon(0 0, var(--notch-x) 0, calc(var(--notch-x) + var(--notch-depth)) var(--notch-depth), calc(100% - var(--notch-x) - var(--notch-depth)) var(--notch-depth), calc(100% - var(--notch-x)) 0, 100% 0, 100% 100%, 0 100%);
-
   --shape-badge: polygon(0 50%, var(--stat-cut) 0, calc(100% - var(--stat-cut)) 0, 100% 50%, calc(100% - var(--stat-cut)) 100%, var(--stat-cut) 100%);
 
   /* Ring shapes = the border: outer shape minus inner shape (evenodd).
@@ -137,7 +133,7 @@
 /* No backdrop blur available: more opaque panels, no blur */
 @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
   :root {
-    --panel-bg: hsla(0, 0%, 0%, 0.9);
+    --panel-bg: hsla(0, 0%, 10%, 0.9);
     --panel-blur: none;
   }
 }
@@ -151,8 +147,18 @@ body {
   min-height: 100vh;
   font-family: system-ui, "Segoe UI", sans-serif;
   color: var(--text-color);
+  background-color: black; /* base color: also visible while overscrolling */
+}
+
+/* Page background: a fixed element instead of background-attachment: fixed
+   (iOS ignores that one, and elsewhere it can force a repaint on every scroll frame) */
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
   background: linear-gradient(135deg, var(--neon-indigo), black 24%, black 76%, var(--neon-indigo));
-  background-attachment: fixed;
 }
 
 .font-header {
@@ -167,6 +173,9 @@ body {
   position: absolute;
   width: 1px;
   height: 1px;
+  border: 0;
+  padding: 0;
+  margin: -1px;
   overflow: hidden;
   clip-path: inset(50%);
   white-space: nowrap;
@@ -188,14 +197,22 @@ body {
    The element itself is NOT clipped, so children (e.g. stat badges) can
    overflow the shape, and filter: drop-shadow() follows the visible shape.
 
-   Variables to set on the element:
+   Variables to set on the element (defaults below: nothing is drawn):
    --frame-shape   outer shape (panel layer)
    --frame-ring    ring shape (border layer)
    --frame-fill    border color or gradient
    --frame-bg      panel background (color)
-   --frame-blur    backdrop-filter value (optional)
+   --frame-blur    backdrop-filter value
+   The defaults are set on .framed itself (not only as var() fallbacks), so a
+   nested .framed never inherits the values of its parent.
    ========================================================================== */
 .framed {
+  --frame-shape: none;
+  --frame-ring: none;
+  --frame-fill: transparent;
+  --frame-bg: transparent;
+  --frame-blur: none;
+
   position: relative;
   isolation: isolate;
 }
@@ -211,8 +228,8 @@ body {
 .framed::before {
   background: var(--frame-bg);
   clip-path: var(--frame-shape);
-  -webkit-backdrop-filter: var(--frame-blur, none);
-  backdrop-filter: var(--frame-blur, none);
+  -webkit-backdrop-filter: var(--frame-blur);
+  backdrop-filter: var(--frame-blur);
 }
 
 .framed::after {
@@ -232,17 +249,16 @@ body {
    --accent         solid color (first stop of the type gradient)
    --type-gradient  border gradient
    --glow           filter around the card (drop-shadow follows the clipped shape)
-   Defaults = no type / standard rarity (white).
+   Defaults = no type / standard rarity (white border, no glow).
    ========================================================================== */
 .card {
   --accent: var(--white);
   --type-gradient: linear-gradient(var(--accent), var(--accent));
-  --glow: drop-shadow(none);
+  --glow: none;
 
   --frame-shape: var(--shape-card);
   --frame-ring: var(--ring-card);
   --frame-fill: var(--type-gradient);
-  --frame-bg: transparent; /* the art is the <img>, no panel needed */
 
   width: var(--card-width);
   height: var(--card-height);
@@ -254,6 +270,11 @@ body {
   align-items: stretch;
 
   filter: var(--glow);
+}
+
+/* The art is the <img>, so the card needs no panel layer (the ring is ::after) */
+.card::before {
+  content: none;
 }
 
 /* Rarity */
